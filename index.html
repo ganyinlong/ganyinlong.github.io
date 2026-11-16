@@ -21,6 +21,9 @@ padding:calc(16px + env(safe-area-inset-top)) 14px 16px}
 .h-d{font-size:12px;opacity:.75;margin-left:auto}
 .h-t{font-size:24px;font-weight:700;margin-top:6px;letter-spacing:.01em}
 .h-p{font-size:12px;opacity:.8;margin-top:2px}
+.wxtip{background:#fff7e6;border-bottom:1px solid #ffd591;color:#8c5a00;font-size:13px;line-height:1.6;padding:10px 14px;display:none;position:relative}
+.wxtip b{color:#b45309}
+.wxtip .x{position:absolute;right:10px;top:8px;color:#b45309;font-size:16px;padding:0 6px;cursor:pointer}
 .card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(20,30,60,.07)}
 .step{font-size:12px;font-weight:700;color:#1154cc;letter-spacing:.08em;margin-bottom:2px}
 .step b{font-size:15px;color:#1a202c;letter-spacing:0;margin-left:6px}
@@ -107,6 +110,11 @@ nav button span{display:block;font-size:20px;line-height:1.25}
   <div class="h-p" id="hP"></div>
 </div></header>
 
+<div class="wxtip" id="wxTip">
+  <span class="x" id="wxClose">×</span>
+  你正在微信里打开，微信会拦一次。<b>点右上角 ··· → 在浏览器打开</b>，再「添加到主屏幕」，以后点图标直接进，不会再被拦。
+</div>
+
 <div class="wrap">
   <div id="vToday">
     <div class="card">
@@ -176,7 +184,7 @@ nav button span{display:block;font-size:20px;line-height:1.25}
 
   <div id="vList" style="display:none">
     <div class="card">
-      <div class="step">目录<b>180 天</b></div>
+      <div class="step">目录<b id="listTotal"></b></div>
       <div class="list" id="list"></div>
     </div>
   </div>
@@ -504,6 +512,7 @@ function streak(){
 function todayDone(){ return !!done[N]; }
 
 function renderList(){
+  if ($("listTotal")) $("listTotal").textContent = TOTAL + " 天";
   $("list").innerHTML = DATA.map(d=>{
     const ok = done[d.n];
     return '<div class="row'+(d.n===N?' cur':'')+'" data-n="'+d.n+'">'+
@@ -573,6 +582,15 @@ $("bReset").onclick = ()=>{
 $("nToday").onclick = ()=>{ localStorage.removeItem(K_DAY); N = dayN(); L = DATA.find(d=>d.n===N); wi = 0; render(); goto("today"); };
 $("nList").onclick = ()=> goto("list");
 $("nMe").onclick = ()=> goto("me");
+
+if (/MicroMessenger/i.test(navigator.userAgent)) {
+  const tip = $("wxTip");
+  if (tip && localStorage.getItem("apEng194.wxTipOff") !== "1") tip.style.display = "block";
+  if ($("wxClose")) $("wxClose").onclick = function(){
+    tip.style.display = "none";
+    localStorage.setItem("apEng194.wxTipOff", "1");
+  };
+}
 
 render(); renderMe();
 </script>
