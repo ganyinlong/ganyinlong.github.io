@@ -273,14 +273,15 @@ function render(){
              '<div class="ipa-eg">' + x.eg + '</div>' +
              '<div class="ipa-tip" style="color:#8b95a5">拼写规律：' + x.rule + '</div></div>';
     }).join("");
-    if (L.spelling){ $("spellBox").style.display = ""; $("spellBox").textContent = "本课拼读要点：" + L.spelling; }
+    if (L.spelling){ $("spellBox").style.display = ""; $("spellBox").textContent = "本课拼读要点：" + L.spelling.replace(/^拼写规律：/, ""); }
     else $("spellBox").style.display = "none";
   } else {
     $("ipaBox").style.display = "none";
   }
 
   $("out").textContent = L.output || "—";
-  $("foldSound").textContent = "发音：" + (L.sound || "—");
+  if (L.sound){ $("foldSound").style.display = ""; $("foldSound").textContent = "发音：" + L.sound; }
+  else { $("foldSound").style.display = "none"; }
   $("foldGram").textContent = "语法：" + (L.gram || "") + (L.gramRule ? "（" + L.gramRule + "）" : "");
   $("foldEx").innerHTML = (L.gramEx||[]).map(e=>"· "+e).join("<br>");
 
