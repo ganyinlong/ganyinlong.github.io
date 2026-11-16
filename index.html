@@ -38,6 +38,16 @@ font-weight:700;background:#1154cc;color:#fff;margin-top:12px}
 .ipa-eg{font-size:13px;color:#2b4a86;margin-top:4px;font-weight:600}
 .spell{font-size:13px;color:#4a5463;background:#fffaf0;border-left:3px solid #f0b429;
 border-radius:6px;padding:8px 10px;margin-top:10px;line-height:1.6}
+ 
+.quiz-q{background:#fbfcff;border:1px solid #eef2f9;border-radius:12px;padding:12px;margin-top:10px}
+.quiz-ask{font-size:15px;font-weight:700;color:#1a202c}
+.quiz-ask span{font-size:12px;color:#8b95a5;font-weight:400;margin-right:6px}
+.quiz-opts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.quiz-opts button{text-align:left;border:1px solid #dfe5ee;background:#fff;border-radius:9px;
+padding:11px;font-size:14px;color:#2b3644}
+.quiz-opts button.ok{background:#e8f6ee;border-color:#12a150;color:#0d7a3d;font-weight:700}
+.quiz-opts button.no{background:#fdecec;border-color:#e05252;color:#b3261e}
+.quiz-score{font-size:15px;font-weight:700;margin-top:12px;color:#1154cc}
 .hl{background:#fff1a8!important;box-shadow:0 0 0 4px #fff1a8;border-radius:6px;transition:background .12s}
 .dlg{display:flex;gap:8px;padding:10px;border-radius:10px;margin-top:8px;background:#fbfcff;border:1px solid #eef2f9}
 .dlg .spk{flex:0 0 20px;font-weight:800;color:#1154cc;font-size:13px;padding-top:2px}
@@ -150,7 +160,15 @@ nav button span{display:block;font-size:20px;line-height:1.25}
       </details>
     </div>
 
-    <div class="card" id="revCard" style="display:none">
+    <div class="card" id="quizCard">
+      <div class="step">第四步<b>考核 5 题</b></div>
+      <div class="sub">答对 4 题以上才算达标，达标才能打卡。</div>
+      <div id="quizList"></div>
+      <div class="quiz-score" id="quizScore"></div>
+      <button class="btn ghost" id="quizAgain" style="display:none;margin-top:10px">重考一次</button>
+    </div>
+
+  <div class="card" id="revCard" style="display:none">
       <div class="step">顺带复习<b>前几天学过的</b></div>
       <div id="rev" class="sub" style="margin-top:8px"></div>
     </div>
@@ -167,7 +185,7 @@ nav button span{display:block;font-size:20px;line-height:1.25}
     <div class="card">
       <div class="step">我的进度</div>
       <div class="big" id="meDone">0</div>
-      <div class="mid">已完成天数</div>
+      <div class="mid" id="meMid">已完成天数</div>
       <div class="progress"><i id="meBar"></i></div>
       <div class="stat">
         <div><b id="meStreak">0</b><span>连续打卡</span></div>
@@ -378,6 +396,7 @@ function render(){
     $("revCard").style.display = "";
     $("rev").innerHTML = '<span style="color:#9aa4b2">第 4 天开始，这里会出现你 3 天前、7 天前、30 天前学过的词，帮你记住不忘。</span>';
   }
+  renderQuiz();
   renderCheck();
 }
 function showWord(){
@@ -390,10 +409,92 @@ function showWord(){
   $("wEx").textContent = w.ex;
   $("wExCn").textContent = w.ex_cn || "";
 }
+const K_QUIZ = "apEng194.quiz";
+let quizScoreMap = JSON.parse(localStorage.getItem(K_QUIZ) || "{}");
+let quizQs = [];
+
+function quizPassed(n){ return (quizScoreMap[n] || 0) >= 4; }
+
+function seededShuffle(arr, seed){
+  const a = arr.slice(); let s = seed;
+  for (let i = a.length - 1; i > 0; i--){
+    s = (s * 9301 + 49297) % 233280;
+    const j = Math.floor(s / 233280 * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function buildQuiz(){
+  const pool = [];
+  DATA.filter(function(d){ return Math.abs(d.n - N) <= 4; }).forEach(function(d){
+    d.words.forEach(function(w){ pool.push(w); });
+  });
+  const ws = L.words;
+  const qs = [];
+  for (let i = 0; i < 5; i++){
+    const w = ws[i % ws.length];
+    const en2cn = (i % 2) === 1;
+    const others = seededShuffle(pool.filter(function(x){ return x.w !== w.w; }), N * 31 + i).slice(0, 3);
+    const opts = seededShuffle([w].concat(others), N * 7 + i);
+    qs.push({ w: w, en2cn: en2cn, opts: opts, ans: w.w });
+  }
+  return qs;
+}
+
+function renderQuiz(){
+  quizQs = buildQuiz();
+  const got = quizScoreMap[N];
+  if (got !== undefined && got >= 4){
+    $("quizScore").textContent = "已达标：" + got + " / 5 ✓";
+    $("quizAgain").style.display = "";
+  } else {
+    $("quizScore").textContent = "";
+    $("quizAgain").style.display = "none";
+  }
+  let answered = 0, right = 0;
+  $("quizList").innerHTML = quizQs.map(function(q, i){
+    const ask = q.en2cn ? ("\u201c" + q.w.w + "\u201d 是什么意思？") : ("\u201c" + q.w.cn + "\u201d 英文怎么说？");
+    const opts = q.opts.map(function(o){
+      const text = q.en2cn ? o.cn : o.w;
+      return '<button data-q="' + i + '" data-k="' + o.w + '">' + text + '</button>';
+    }).join("");
+    return '<div class="quiz-q"><div class="quiz-ask"><span>第 ' + (i + 1) + ' 题</span>' + ask +
+           '</div><div class="quiz-opts">' + opts + '</div></div>';
+  }).join("");
+
+  $("quizList").querySelectorAll("button").forEach(function(btn){
+    btn.onclick = function(){
+      const box = btn.parentNode;
+      if (box.dataset.done === "1") return;
+      box.dataset.done = "1";
+      const q = quizQs[+btn.dataset.q];
+      answered++;
+      const ok = (btn.dataset.k === q.ans);
+      if (ok) right++;
+      box.querySelectorAll("button").forEach(function(b){
+        if (b.dataset.k === q.ans) b.classList.add("ok");
+        else if (b === btn) b.classList.add("no");
+      });
+      if (ok) play([{v:"en",t:q.w.w,r:0.95,a:300},{v:"en",t:q.w.ex,r:0.95}]);
+      if (answered === quizQs.length){
+        quizScoreMap[N] = right;
+        localStorage.setItem(K_QUIZ, JSON.stringify(quizScoreMap));
+        const pass = right >= 4;
+        $("quizScore").textContent = (pass ? "达标：" : "还没达标：") + right + " / 5" +
+          (pass ? "，现在可以打卡了。" : "，再来一次吧。");
+        $("quizAgain").style.display = pass ? "none" : "";
+        renderCheck(); renderMe();
+      }
+    };
+  });
+}
+
 function renderCheck(){
   const b = $("checkBtn");
   if (done[N]){ b.textContent = "第 " + N + " 天已打卡 · 点一下取消"; b.classList.add("done"); }
-  else { b.textContent = "今天学完了 ✓"; b.classList.remove("done"); }
+  else if (quizPassed(N)){ b.textContent = "今天学完了 ✓ 达标 " + quizScoreMap[N] + "/5"; b.classList.remove("done"); }
+  else { b.textContent = "先做 5 题考核，达标后打卡"; b.classList.add("done"); }
 }
 function streak(){
   let s = 0, d = todayDone() ? N : N - 1;
@@ -424,6 +525,8 @@ function renderMe(){
   $("mePct").textContent = Math.round(cnt/TOTAL*100) + "%";
   $("meBar").style.width = (cnt/TOTAL*100) + "%";
   $("meStreak").textContent = streak();
+  const passed = Object.keys(quizScoreMap).filter(function(k){ return quizScoreMap[k] >= 4; }).length;
+  if ($("meMid")) $("meMid").textContent = "已完成天数 · 考核达标 " + passed + " 天";
 }
 function goto(v){
   ["Today","List","Me"].forEach(x=>{
@@ -450,9 +553,19 @@ $("cbHide").onchange = e=>{
   });
 };
 $("checkBtn").onclick = ()=>{
+  if (!done[N] && !quizPassed(N)){
+    const el = $("quizCard");
+    if (el && el.scrollIntoView) el.scrollIntoView({block:"center", behavior:"smooth"});
+    return;
+  }
   if (done[N]) delete done[N]; else done[N] = true;
   localStorage.setItem(K_DONE, JSON.stringify(done));
   renderCheck(); renderMe();
+};
+$("quizAgain").onclick = ()=>{
+  delete quizScoreMap[N];
+  localStorage.setItem(K_QUIZ, JSON.stringify(quizScoreMap));
+  renderQuiz(); renderCheck(); renderMe();
 };
 $("bReset").onclick = ()=>{
   if (confirm("清空所有打卡记录？")){ done = {}; localStorage.removeItem(K_DONE); renderCheck(); renderMe(); }
